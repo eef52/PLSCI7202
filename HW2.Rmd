@@ -1,0 +1,361 @@
+---
+title: "Diamond Price Prediction"
+output: pdf_document
+author: "Erin Farmer"
+date: "9/14/21"
+---
+
+
+```{r}
+library(knitr)
+library(tidyverse)
+library(tidymodels)
+```
+
+
+# Section 1: Data Description and Visualization
+
+```{r}
+#Convert Diamonds data set to data frame.
+diamonds <- as.data.frame(diamonds)
+```
+
+
+```{r}
+#Summary of data set
+summary(diamonds)
+str(diamonds)
+diamonds$cut <- factor(diamonds$cut, ordered = FALSE)
+diamonds$color <- factor(diamonds$color, ordered = FALSE)
+diamonds$clarity <- factor(diamonds$clarity, ordered = FALSE)
+```
+
+The dataset contains information for 53,940 diamonds. The information collected for each of these diamonds includes price, carat, cut quality (5 levels from "Fair" to "Ideal"), color (7 levels denoting best, D, to worst, J), clarity (8 levels denoting best, IF, to worst, I1), length (x), width (y), depth (z), depth percentage (2*depth/(width+length)), and table (measure of the width of the top relative to the widest point). The following graphs show scatterplots of price and each of the other variables.
+
+
+```{r, fig.cap ="Pairwise correlations"}
+#Figure 1: Pairwise correlations
+#plot(diamonds)
+```
+
+
+```{r, fig.cap ="Price and Carat"}
+plot(diamonds[,c(1,7)])
+```
+```{r, fig.cap ="Price and Cut"}
+plot(diamonds[,c(2,7)])
+```
+```{r, fig.cap ="Price and Color"}
+plot(diamonds[,c(3,7)])
+```
+```{r, fig.cap ="Price and Clarity"}
+plot(diamonds[,c(4,7)])
+```
+```{r, fig.cap ="Price and Depth Percentage"}
+plot(diamonds[,c(5,7)])
+```
+```{r, fig.cap ="Price and Table"}
+plot(diamonds[,c(6,7)])
+```
+```{r, fig.cap ="Price and Length"}
+plot(diamonds[,c(8,7)])
+```
+```{r, fig.cap ="Price and Width"}
+plot(diamonds[,c(9,7)])
+```
+```{r, fig.cap ="Price and Depth"}
+plot(diamonds[,c(10,7)])
+```
+
+The following 6 scatterplots show the relationship between price and carat, color-coded by additional variables from the dataset.
+
+```{r, fig.cap ="Price and Carat, colored by cut"}
+plot(diamonds[,c(1,7)], col=diamonds$cut)
+```
+```{r, fig.cap ="Price and Carat, colored by color"}
+plot(diamonds[,c(1,7)], col=diamonds$color)
+```
+```{r, fig.cap ="Price and Carat, colored by clarity"}
+plot(diamonds[,c(1,7)], col=diamonds$clarity)
+```
+```{r, fig.cap ="Price and Carat, colored by length"}
+plot(diamonds[,c(1,7)], col=diamonds$x)
+```
+```{r, fig.cap ="Price and Carat, colored by width"}
+plot(diamonds[,c(1,7)], col=diamonds$y)
+```
+```{r, fig.cap ="Price and Carat, colored by depth"}
+plot(diamonds[,c(1,7)], col=diamonds$z)
+```
+
+
+The table below gives the correlations between the numeric variables included in the dataset.
+```{r, fig.cap ="Correlations"}
+cor(diamonds[,c(1,5:10)])
+```
+
+```{r}
+hist_price <- ggplot(diamonds, aes(x=price)) +
+              geom_histogram() +
+              xlab("Price") + ylab("Frequency") +
+              ggtitle("Distribution of Price") +
+              theme(panel.background=element_blank(),
+                    plot.title=element_text(hjust=0.5))
+hist_price
+```
+
+
+These graphs and descriptive statistics show that carat, length, width, and depth are highly correlated with price. Carat, length, width, and depth are also highly correlated with each other, as they are all measures of size. Depth and table have a correlation of -0.29, which is the strongest correlation between depth and any other variable and between table and any other variable. The distribution of price is right-skewed, and the summary statistics of price for different diamond weights show that the mean increases as weight increase, as expected, but the variance in price decreases as diamond size increases.
+
+Cut, color, and clarity do have an obvious association with price. In fact, as the cut increases in quality, the mean price decreases, as the color gets worse, the mean price increases, and as the clarity improves, the mean price decreases. This appears to be the opposite of what intuition would dictate. However, when the plots of carat and price are color-coded using cut, color, and clarity, we see a pattern emerge, suggesting that size and each of these variables interact to determine price. In particular, the surprising patterns of means could suggest that the diamonds that have higher cut quality, better color, and better clarity are likely to be smaller.
+
+The following figures show scatterplots of carat with length, width, and depth.
+
+
+```{r, fig.cap ="Length and Carat"}
+plot(diamonds[,c(8,1)])
+```
+```{r, fig.cap ="Width and Carat"}
+plot(diamonds[,c(9,1)])
+```
+```{r, fig.cap ="Depth and Carat"}
+plot(diamonds[,c(10,1)])
+```
+In addition, from these three plots, we see that there are some observations for which width=0, length=0, and/or depth=0. These observations will need addition care in analyses, as they are likely errors. Finally, there appear to be outliers in the width and depth variables, where y > 30mm and z > 30mm, respectively, but the measures of carat are not high, indicating that these may also be errors in the data.
+
+
+
+# Section 2: Model Building
+
+The model building process was completed using forward selection, starting with one predictor and adding one additional predictor until all had been included. Before this was done, price was transformed to be the log(price). This aids in interpretation of the results and also results in a distribution that is more normal.
+
+```{r}
+#transforming price variable to natural log of price
+diamonds3 <- diamonds %>%
+             mutate(price.log = log(price))
+hist(diamonds3$price.log)
+```
+
+
+Model 1: price.log ~ carat
+```{r}
+options(tibble.print_max = Inf)
+#One predictor
+m1 <- lm(price.log ~ carat,
+           data=diamonds3)
+tidy(m1)
+glance(m1)
+```
+
+Model 2: price.log ~ carat + cut
+```{r}
+#Two predictors
+m2 <- lm(price.log ~ carat + cut,
+           data=diamonds3)
+tidy(m2)
+glance(m2)
+```
+
+Model 3: price.log ~ carat + cut + color
+```{r}
+#Three predictors
+m3 <- lm(price.log ~ carat + cut + color,
+           data=diamonds3)
+tidy(m3)
+glance(m3)
+```
+
+Model 4: price.log ~ carat + cut + color + clarity
+```{r}
+#Four predictors
+m4 <- lm(price.log ~ carat + cut + color + clarity,
+           data=diamonds3)
+tidy(m4)
+glance(m4)
+```
+
+
+Model 5: price.log ~ carat + cut + color + clarity + x
+```{r}
+#five predictors
+m5 <- lm(price.log ~ carat + cut + color + clarity + x,
+           data=diamonds3)
+tidy(m5)
+glance(m5)
+```
+
+Model 6: price.log ~ carat + cut + color + clarity + x + y
+```{r}
+#six predictors
+m6 <- lm(price.log ~ carat + cut + color + clarity + x + y,
+           data=diamonds3)
+tidy(m6)
+glance(m6)
+```
+
+Model 7: price.log ~ carat + cut + color + clarity + x + y + z
+```{r}
+#seven predictors
+m7 <- lm(price.log ~ carat + cut + color + clarity + x + y + z,
+           data=diamonds3)
+tidy(m7)
+glance(m7)
+```
+
+Model 8: price.log ~ carat + cut + color + clarity + x + y + z + depth
+```{r}
+#eight predictors
+m8 <- lm(price.log ~ carat + cut + color + clarity + x + y + z + depth,
+           data=diamonds3)
+tidy(m8)
+glance(m8)
+```
+
+Model 9: price.log ~ carat + cut + color + clarity + x + y + z + depth + table
+```{r}
+#nine predictors
+m9 <- lm(price.log ~ carat + cut + color + clarity + x + y + z + depth + table,
+           data=diamonds3)
+tidy(m9)
+glance(m9)
+```
+
+
+
+```{r}
+#Model summaries
+m1_summary <- glance(m1)
+m2_summary <- glance(m2)
+m3_summary <- glance(m3)
+m4_summary <- glance(m4)
+m5_summary <- glance(m5)
+m6_summary <- glance(m6)
+m7_summary <- glance(m7)
+m8_summary <- glance(m8)
+m9_summary <- glance(m9)
+```
+
+From the F-test, we see that all of these first 9 regressions are statistically significant. We see that explanatory power is increasing as variables are added, as measured by the adjusted R-Squared. The change in the R-squared was small for all variables aside from length, thought we do not see the R-Squared decreasing as variables are added. For Models 1 - 4, all coefficients are in the direction expected and are highly significant (the p-values are close to 0). When length is added in Model 5, the direction on the coefficient for carat change direction, with the model suggesting that as carat increases, price decreases (while as length increases, price increases). This switch is likely due to multicollinearity, which is the correlation between length and carat, in this case. The high multicollinearity has resulted in skewed coefficients.
+
+```{r}
+m9_resid <- resid(m9)
+diamonds3$resid = m9_resid
+diamonds3$resid_z = (m9_resid - mean(m9_resid))/sd(m9_resid)
+
+#remove errors
+diamonds4 <- diamonds3 %>% select(carat, color, cut, clarity, depth, table, x, y, z, price.log, resid, resid_z) %>% mutate(x = na_if(x,0)) %>% mutate(y = na_if(y, 0)) %>% mutate(z = na_if(z, 0))
+
+#remove outliers
+diamonds_clean <- subset(diamonds4, ((m9_resid - mean(m9_resid))/sd(m9_resid) <= 15))
+```
+
+The data was cleaned, removing the errors and outliers. This was done by replacing values where length=0, width=0, or depth=0 with NA or missing values. Outliers were identified using the residuals, and 8 observations were removed. These same 9 regression models were run again on the data without errors or outliers.
+
+```{r}
+#rerun models without errors and outliers
+m1.1 <- lm(price.log ~ carat,
+           data=diamonds_clean)
+m2.1 <- lm(price.log ~ carat + cut,
+           data=diamonds_clean)
+m3.1 <- lm(price.log ~ carat + cut + color,
+           data=diamonds_clean)
+m4.1 <- lm(price.log ~ carat + cut + color + clarity,
+           data=diamonds_clean)
+m5.1 <- lm(price.log ~ carat + cut + color + clarity + x,
+           data=diamonds_clean)
+m6.1 <- lm(price.log ~ carat + cut + color + clarity + x + y,
+           data=diamonds_clean)
+m7.1 <- lm(price.log ~ carat + cut + color + clarity + x + y + z,
+           data=diamonds_clean)
+m8.1 <- lm(price.log ~ carat + cut + color + clarity + x + y + z + depth,
+           data=diamonds_clean)
+m9.1 <- lm(price.log ~ carat + cut + color + clarity + x + y + z + depth + table,
+           data=diamonds_clean)
+
+#Model summaries
+m1.1_summary <- glance(m1.1)
+m2.1_summary <- glance(m2.1)
+m3.1_summary <- glance(m3.1)
+m4.1_summary <- glance(m4.1)
+m5.1_summary <- glance(m5.1)
+m6.1_summary <- glance(m6.1)
+m7.1_summary <- glance(m7.1)
+m8.1_summary <- glance(m8.1)
+m9.1_summary <- glance(m9.1)
+```
+
+Forward selection again shows that the explanatory power of the model is increasing as variables are added, though we see only minor changes in the R-Squared. In addition, all 9 models are statistically significant. Due to the multicollinearity observed above, only one of the 4 variables for size should be included in the model. Further analyses were conducted below to determine whether carat, width, length, or depth would be included.
+
+
+```{r}
+#additional models to test
+m10 <- lm(price.log ~ carat + cut + color + clarity + depth,
+           data=diamonds_clean)
+m11 <- lm(price.log ~ carat + cut + color + clarity + depth + table,
+           data=diamonds_clean)
+m12 <- lm(price.log ~ cut + color + clarity + x,
+           data=diamonds_clean)
+m13 <- lm(price.log ~ cut + color + clarity + x + depth,
+           data=diamonds_clean)
+m14 <- lm(price.log ~ cut + color + clarity + x + depth + table,
+           data=diamonds_clean)
+m15 <- lm(price.log ~ cut + color + clarity + y + depth + table,
+          data=diamonds_clean)
+m16 <- lm(price.log ~ cut + color + clarity + z + depth + table,
+          data=diamonds_clean)
+
+#Model summaries
+m10_summary <- glance(m10)
+m11_summary <- glance(m11)
+m12_summary <- glance(m12)
+m13_summary <- glance(m13)
+m14_summary <- glance(m14)
+m15_summary <- glance(m15)
+m16_summary <- glance(m16)
+```
+
+Here, we see that the highest R-Squared is obtained when length is included in the model, with a value of 0.9727. Again, with the inclusion of additional variables, the R-Squared is increasing by small increments. Therefore, our next question is whether or not to include the additional variables.
+
+
+```{r}
+tidy(m14)
+#are models significantly different?
+anova(m12, m13, m14)
+```
+
+The first output shows that all variables are highly significant. The second output shows the results from the F-tests comparing the models without depth and table, with depth, and with depth and table. The F-tests show that each of these three models are statistically significantly different, with p-values close to 0. Therefore, the final model will include all variables except for carat, width, and depth.
+
+
+The plots of the residuals show that the residuals are approximately normally distributed and approximately homoscedastic (there does appear to be a slight pattern in the second plot, particularly for higher values of y-hat).
+
+
+```{r, fig.cap="Histogram of Residuals, Model 14"}
+#Residuals
+m14_resid <- resid(m14)
+hist(m14_resid)
+```
+
+```{r, fig.cap="Residuals and y-hat, Model 14"}
+y_hat14 <- fitted(m14)
+plot(y_hat14, m14_resid)
+abline(0,0)
+```
+
+
+
+# Section 3: Final Model and Recommendations
+
+```{r, fig.cap = "price.log ~ cut + color + clarity + x + depth + table"}
+tidy(m14)
+```
+```{r}
+glance(m14)
+```
+
+The final model gives the linear relationship between price and cut, clarity, color, length, depth, and table. The model is highly predictive of price, with 97.27% of variation in price explained by the model. The F-test shows that the model is highly significant, and therefore, valid. In addition, all coefficients are significant
+at the 99.9% level, and as such, they are significant predictors of price.
+
+Length, cut, color, clarity, depth percentage, and table are positively related to price. Because price is measured as log(price), we can interpret the coefficients as percentage changes in price. For example, if width increases by 1mm, we expect price to increase by 97.85%. Table and depth percentage do not have large magnitude effects on price, at 1% and 4% per unit increase, respectively. The largest percentage changes in price are likely to occur when length increases and when clarity improves. My recommendation, therefore, is to invest in diamonds that are larger and more clear as a main priority, giving secondary concern to color, and lastly, to cut.
+
+
+
